@@ -10,6 +10,7 @@ from supabase import create_client
 from dotenv import load_dotenv
 import requests
 from aiohttp import web  # Async web framework
+import asyncio
 
 # Load environment variables
 load_dotenv()
@@ -111,31 +112,35 @@ async def setup_webhook():
 
 # --- Startup ---
 async def main():
-    # Register handlers
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("predict", predict))
+    # Your existing setup code
+    application = Application.builder().token(os.getenv("TELEGRAM_TOKEN")).build()
 
     # Webhook mode
     if os.getenv("WEBHOOK_MODE"):
         await setup_webhook()
 
-        # Create aiohttp server
-        app = web.Application()
-        app.router.add_post("/webhook", handle_webhook)
-
+        # Create server
         runner = web.AppRunner(app)
         await runner.setup()
         site = web.TCPSite(runner, "0.0.0.0", int(os.getenv("PORT", 8000)))
         await site.start()
 
-        logger.info("Webhook server started")
-        while True:
-            await asyncio.sleep(3600)  # Run forever
+        # Keep running until interrupted
+        try:
+            while True:
+                await asyncio.sleep(3600)
+        except (KeyboardInterrupt, SystemExit):
+            logger.info("Shutting down...")
+            await site.stop()
+            await runner.cleanup()
+            await application.shutdown()
     else:
+        # Polling mode
         await application.run_polling()
 
 
 if __name__ == "__main__":
-    import asyncio
-
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        logger.info("Bot stopped")
