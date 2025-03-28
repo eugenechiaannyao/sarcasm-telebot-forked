@@ -1,4 +1,4 @@
-# Stable version
+# Stable version v2
 import asyncio
 import os
 import logging
