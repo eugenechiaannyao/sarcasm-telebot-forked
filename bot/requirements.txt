@@ -1,10 +1,7 @@
 python-telegram-bot~=20.3
 requests==2.31.0
 python-dotenv==1.0.0
-flask[async]
 gunicorn==20.1.0
 supabase~=2.10.0
 dotenv~=0.9.9
-gevent==23.9.1
-greenlet==3.0.1
-
+aiohttp
