@@ -1,8 +1,6 @@
 # api/app.py
-import sys
 from flask import Flask, request, jsonify
 import joblib
-from pathlib import Path
 import string
 import spacy
 import nltk
