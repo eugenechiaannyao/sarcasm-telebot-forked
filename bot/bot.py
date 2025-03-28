@@ -129,18 +129,20 @@ class SarcasmBot:
                 sarcasm_prob = data['prediction'][0][1] * 100
                 response_msg = self._get_response(sarcasm_prob)
 
+                confidence_score, is_sarcasm = self.calculate_normalized_confidence(sarcasm_prob)
+
                 # Store interaction
                 self.pending_interactions[user_id] = {
                     "raw_text": text,
                     "processed_text": data.get('processed_text', ''),
                     "confidence": sarcasm_prob,
-                    "is_sarcasm": sarcasm_prob >= 50,
+                    "is_sarcasm": is_sarcasm,
                     "chat_id": update.effective_chat.id
                 }
 
                 # Send response
                 await update.message.reply_text(
-                    f"{response_msg}\n\nConfidence: {sarcasm_prob:.1f}%"
+                    f"{response_msg}\n\nConfidence: {confidence_score:.1f}%"
                 )
 
                 # Request feedback
@@ -173,6 +175,33 @@ class SarcasmBot:
 
         # Cleanup if all retries failed
         self.pending_interactions.pop(user_id, None)
+
+    def calculate_normalized_confidence(self, raw_prob: float) -> tuple[float, bool]:
+        """
+        Calculate normalized confidence score and sarcasm determination
+        Args:
+            raw_prob: Raw probability from model (0.0-1.0)
+        Returns:
+            tuple[normalized_confidence (0-100), is_sarcasm (bool)]
+        """
+        sarcasm_prob = raw_prob * 100  # Convert to percentage
+
+        # Determine if sarcastic (with 5% buffer zone)
+        is_sarcasm = sarcasm_prob > 55  # More conservative than 50%
+
+        # Base confidence (distance from neutral)
+        base_confidence = abs(sarcasm_prob - 50) * 2  # Converts 50-100 → 0-100
+
+        # Apply non-linear normalization curve
+        if is_sarcasm:
+            # Sarcasm confidence curve (more aggressive boost)
+            normalized = 50 + (base_confidence ** 1.2) / 2
+        else:
+            # Non-sarcasm confidence curve (more conservative)
+            normalized = 50 + (base_confidence ** 0.9) / 2
+
+        # Cap at 95% to avoid absolute certainty
+        return min(normalized, 95), is_sarcasm
 
     async def handle_feedback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Process user feedback and save complete interaction"""
