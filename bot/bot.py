@@ -74,6 +74,17 @@ async def predict(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.error(f"Prediction error: {e}")
         await update.message.reply_text("⚠️ Error processing your request")
 
+def get_response(confidence: float) -> str:
+    """Generate response based on confidence level"""
+    if confidence >= 85:
+        return "🔥 Absolutely sarcastic!"
+    elif confidence >= 75:
+        return "💯 Pretty sure this is sarcasm"
+    elif confidence >= 65:
+        return "👍 Likely sarcastic"
+    elif confidence >= 50:
+        return "🤔 Might be sarcastic..."
+    return "❌ Doesn't seem sarcastic"
 
 # --- Webhook Server ---
 async def handle_webhook(request):
@@ -111,7 +122,6 @@ async def main():
         # Create aiohttp server
         app = web.Application()
         app.router.add_post("/webhook", handle_webhook)
-        app.router.add_get("/health", lambda r: web.Response(text="OK"))
 
         runner = web.AppRunner(app)
         await runner.setup()
