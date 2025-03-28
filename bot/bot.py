@@ -186,22 +186,22 @@ class SarcasmBot:
         """
         sarcasm_prob = raw_prob * 100  # Convert to percentage
 
-        # Determine if sarcastic (with 5% buffer zone)
-        is_sarcasm = sarcasm_prob > 55  # More conservative than 50%
+        # Determine if sarcastic
+        is_sarcasm = sarcasm_prob > 50
 
         # Base confidence (distance from neutral)
         base_confidence = abs(sarcasm_prob - 50) * 2  # Converts 50-100 → 0-100
 
-        # Apply non-linear normalization curve
+        # Linear scaling from neutral (50%) to certain (100%)
         if is_sarcasm:
-            # Sarcasm confidence curve (more aggressive boost)
-            normalized = 50 + (base_confidence ** 1.2) / 2
+            # Scale 55% → 65%, 100% → 95%
+            confidence = 65 + (sarcasm_prob - 55) * 0.75
         else:
-            # Non-sarcasm confidence curve (more conservative)
-            normalized = 50 + (base_confidence ** 0.9) / 2
+            # Scale 45% → 65%, 0% → 95% (inverse)
+            confidence = 65 + (45 - sarcasm_prob) * 0.75
 
         # Cap at 95% to avoid absolute certainty
-        return min(normalized, 95), is_sarcasm
+        return normalized, is_sarcasm
 
     async def handle_feedback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Process user feedback and save complete interaction"""
