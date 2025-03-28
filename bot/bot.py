@@ -1,7 +1,7 @@
-# Stable version v2
 import asyncio
 import os
 import logging
+import time
 from typing import Dict
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import (
@@ -50,6 +50,41 @@ class SarcasmBot:
         self.application.add_handler(
             MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_feedback)
         )
+
+        self.last_activity = None
+        self.is_sleeping = False
+        self.sleep_timeout = 1800  # 30 minutes in seconds
+        self.polling_task = None
+
+    async def activity_monitor(self):
+        """Background task to manage sleep/wake states"""
+        while True:
+            await asyncio.sleep(60)  # Check every minute
+
+            if self.last_activity and (time.time() - self.last_activity > self.sleep_timeout):
+                if not self.is_sleeping:
+                    logger.info("💤 Entering sleep mode to conserve resources")
+                    await self.application.updater.stop()
+                    self.is_sleeping = True
+            else:
+                if self.is_sleeping:
+                    logger.info("🔋 Waking up from sleep mode")
+                    await self.application.updater.start_polling()
+                    self.is_sleeping = False
+
+    async def record_activity(self):
+        """Update last activity timestamp"""
+        self.last_activity = time.time()
+        if self.is_sleeping:
+            await self.wake_up()
+
+    async def wake_up(self):
+        """Force wake from sleep"""
+        if self.is_sleeping:
+            logger.info("🔔 Wake-up triggered by new activity")
+            await self.application.updater.start_polling()
+            self.is_sleeping = False
+        self.last_activity = time.time()
 
     async def set_commands(self):
         """Set bot command suggestions"""
@@ -257,8 +292,26 @@ class SarcasmBot:
                 return "⚖️ Could go either way"
 
     def run(self):
-        """Run the bot"""
-        self.application.run_polling()
+        """Run the bot with smart sleep"""
+        # Start activity monitor in background
+        self.polling_task = self.application.run_polling()
+
+        # Create event loop for background tasks
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+        # Run both bot and monitor
+        tasks = [
+            self.polling_task,
+            loop.create_task(self.activity_monitor())
+        ]
+
+        try:
+            loop.run_until_complete(asyncio.gather(*tasks))
+        except KeyboardInterrupt:
+            logger.info("Shutting down gracefully...")
+        finally:
+            loop.close()
 
 
 if __name__ == "__main__":
