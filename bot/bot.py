@@ -114,6 +114,9 @@ def webhook():
         logger.error(f"Webhook error: {e}")
         return 'Error', 500
 
+@app.route('/health')
+def health():
+    return 'OK', 200
 
 # --- Startup ---
 def main():
