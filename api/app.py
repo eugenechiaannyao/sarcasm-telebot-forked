@@ -1,7 +1,9 @@
 # api/app.py
+import sys
 from flask import Flask, request, jsonify
 import joblib
-from utils.preprocessing import preprocess_text
+sys.path.append('../utils')  # Add utils directory to sys.path
+from shared_preprocessing import preprocess_text
 
 app = Flask(__name__)
 
