@@ -9,8 +9,8 @@ from nltk.corpus import stopwords
 app = Flask(__name__)
 
 # Load model and vectorizer from training directory
-model = joblib.load("../training/nb_model.joblib")
-vectorizer = joblib.load("../training/vectorizer.joblib")
+model = joblib.load("training/nb_model.joblib")
+vectorizer = joblib.load("training/vectorizer.joblib")
 
 # Initialize resources once
 nlp = spacy.load('en_core_web_sm')
