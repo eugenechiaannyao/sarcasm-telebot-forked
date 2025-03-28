@@ -3,12 +3,10 @@ import sys
 from flask import Flask, request, jsonify
 import joblib
 from pathlib import Path
-
-# Add project root to Python path
-PROJECT_ROOT = Path(__file__).parent.parent
-sys.path.append(str(PROJECT_ROOT))
-
-from utils.preprocessing import preprocess_text  # No more relative imports
+import string
+import spacy
+import nltk
+from nltk.corpus import stopwords
 
 app = Flask(__name__)
 
@@ -16,6 +14,25 @@ app = Flask(__name__)
 model = joblib.load("../training/nb_model.joblib")
 vectorizer = joblib.load("../training/vectorizer.joblib")
 
+# Initialize resources once
+nlp = spacy.load('en_core_web_sm')
+nltk.download('stopwords')
+stop_words = set(stopwords.words('english'))
+
+
+def preprocess_text(text):
+    """Shared preprocessing pipeline"""
+    # Convert to lowercase
+    text = text.lower()
+
+    # Remove punctuation
+    text = text.translate(str.maketrans('', '', string.punctuation))
+
+    # Tokenize and lemmatize
+    doc = nlp(text)
+    tokens = [token.lemma_ for token in doc if token.text not in stop_words]
+
+    return ' '.join(tokens)
 
 @app.route("/", methods=["GET"])
 def health_check():
