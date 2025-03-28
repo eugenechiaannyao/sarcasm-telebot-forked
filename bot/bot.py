@@ -35,30 +35,30 @@ app = Flask(__name__)
 application = Application.builder().token(os.getenv("TELEGRAM_TOKEN")).build()
 
 
-# --- Bot Command Handlers ---
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# --- Sync Command Handlers ---
+def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Send welcome message"""
-    await update.message.reply_text(
+    update.message.reply_text(
         "🤖 Hi! I'm a sarcasm detection bot.\n\n"
         "Use /predict followed by text to analyze:\n"
         "Example: /predict Oh great, another meeting..."
     )
 
 
-async def predict(update: Update, context: ContextTypes.DEFAULT_TYPE):
+def predict(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle prediction requests"""
     try:
         text = " ".join(context.args) if context.args else ""
 
         if not text:
-            await update.message.reply_text("Please provide text after /predict")
+            update.message.reply_text("Please provide text after /predict")
             return
 
         if len(text.split()) > 18:
-            await update.message.reply_text("Please limit to 18 words")
+            update.message.reply_text("Please limit to 18 words")
             return
 
-        # Call Flask API
+        # Call Flask API (sync request)
         response = requests.post(
             f"{os.getenv('API_URL')}/predict",
             json={"text": text},
@@ -79,13 +79,13 @@ async def predict(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "is_sarcasm": sarcasm_prob >= 50
         }).execute()
 
-        await update.message.reply_text(
+        update.message.reply_text(
             f"{response_msg}\n\nConfidence: {sarcasm_prob:.1f}%"
         )
 
     except Exception as e:
         logger.error(f"Prediction error: {e}")
-        await update.message.reply_text("⚠️ Error processing your request")
+        update.message.reply_text("⚠️ Error processing your request")
 
 
 def _get_response(confidence: float) -> str:
@@ -104,11 +104,11 @@ def _get_response(confidence: float) -> str:
 
 # --- Webhook Setup ---
 @app.route('/webhook', methods=['POST'])
-async def webhook():
-    """Telegram webhook endpoint"""
+def webhook():
+    """Telegram webhook endpoint (sync version)"""
     try:
-        update = Update.de_json(await request.get_json(), application.bot)
-        await application.process_update(update)
+        update = Update.de_json(request.get_json(), application.bot)
+        application.process_update(update)
         return 'OK'
     except Exception as e:
         logger.error(f"Webhook error: {e}")
