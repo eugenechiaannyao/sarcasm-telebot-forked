@@ -1,6 +1,8 @@
 import os
 import logging
 from typing import Dict
+
+from flask import Flask, request
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import (
     Application,
@@ -188,7 +190,12 @@ class SarcasmBot:
 
     def run(self):
         """Run the bot"""
-        self.application.run_polling()
+        app = Flask(__name__)
+
+        if os.getenv("WEBHOOK_MODE"):
+            app.run(host='0.0.0.0', port=int(os.getenv("PORT", 8000)))
+        else:
+            self.application.run_polling()  # Fallback for local dev
 
 
 if __name__ == "__main__":
