@@ -126,7 +126,7 @@ class SarcasmBot:
                 if 'prediction' not in data or len(data['prediction'][0]) < 2:
                     raise ValueError("Invalid API response format")
 
-                sarcasm_prob = data['prediction'][0][1] * 100
+                sarcasm_prob = data['prediction'][0][1]
 
                 confidence_score, is_sarcasm = self.calculate_normalized_confidence(sarcasm_prob)
 
