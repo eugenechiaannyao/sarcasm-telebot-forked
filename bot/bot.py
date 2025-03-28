@@ -9,7 +9,7 @@ from telegram.ext import (
     filters,
     ContextTypes,
 )
-from flask import Flask, request, jsonify
+from quart import Quart, request, jsonify  # Replaced Flask with Quart
 from supabase import create_client
 from dotenv import load_dotenv
 import requests
@@ -30,9 +30,8 @@ supabase = create_client(
     os.getenv("SUPABASE_KEY")
 )
 
-# Initialize Flask with async support
-app = Flask(__name__)
-app.config['JSONIFY_PRETTYPRINT_REGULAR'] = False
+# Initialize Quart (async Flask alternative)
+app = Quart(__name__)
 
 # Initialize Telegram bot
 application = Application.builder().token(os.getenv("TELEGRAM_TOKEN")).build()
@@ -120,7 +119,7 @@ async def webhook():
 
 
 @app.route('/health')
-def health():
+async def health():
     """Health check endpoint"""
     return 'OK', 200
 
@@ -136,24 +135,22 @@ async def register_webhook():
         logger.info(f"Webhook registered at {os.getenv('WEBHOOK_URL')}")
 
 
-def main():
+async def run():
+    """Main async entry point"""
     # Register handlers
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("predict", predict))
 
-    # Start based on environment
     if os.getenv("WEBHOOK_MODE"):
-        port = int(os.getenv("PORT", 8000))
-
-        # Run async tasks
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        loop.run_until_complete(register_webhook())
-
-        app.run(host='0.0.0.0', port=port)
+        await register_webhook()
+        await app.run_task(
+            host='0.0.0.0',
+            port=int(os.getenv("PORT", 8000)),
+            use_reloader=False
+        )
     else:
-        application.run_polling()
+        await application.run_polling()
 
 
 if __name__ == '__main__':
-    main()
+    asyncio.run(run())
