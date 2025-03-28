@@ -1,4 +1,5 @@
 # Stable version
+import asyncio
 import os
 import logging
 from typing import Dict
@@ -85,61 +86,93 @@ class SarcasmBot:
         )
 
     async def predict(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        """Handle prediction requests"""
+        """Handle prediction requests with retry logic"""
         user_id = update.effective_user.id
-        try:
-            text = ' '.join(context.args) if context.args else ""
+        text = ' '.join(context.args) if context.args else ""
 
-            if not text:
-                await update.message.reply_text("Please provide text after /predict")
-                return
+        # Input validation
+        if not text:
+            await update.message.reply_text("Please provide text after /predict")
+            return
+        if len(text.split()) > 18:
+            await update.message.reply_text("Please limit to 18 words")
+            return
 
-            if len(text.split()) > 18:
-                await update.message.reply_text("Please limit to 18 words")
-                return
+        # Retry configuration
+        max_retries = 3
+        initial_timeout = 5
+        backoff_factor = 2  # Exponential backoff (5s, 10s, 20s)
 
-            # Call Flask API
-            response = requests.post(
-                f"{os.getenv('API_URL')}/predict",
-                json={"text": text},
-                timeout=5
-            )
-            response.raise_for_status()
-            data = response.json()
+        for attempt in range(max_retries):
+            try:
+                # Progressive timeout with backoff
+                timeout = initial_timeout * (backoff_factor ** attempt)
 
-            # Process prediction
-            print(data)
-            sarcasm_prob = data['prediction'][0][1] * 100
-            response_msg = self._get_response(sarcasm_prob)
-
-            # Store interaction data temporarily
-            self.pending_interactions[user_id] = {
-                "raw_text": text,
-                "processed_text": data.get('processed_text', ''),
-                "confidence": sarcasm_prob,
-                "is_sarcasm": sarcasm_prob >= 50,
-                "chat_id": update.effective_chat.id
-            }
-
-            # Send response
-            await update.message.reply_text(
-                f"{response_msg}\n\nConfidence: {sarcasm_prob:.1f}%"
-            )
-
-            # Request feedback
-            await update.message.reply_text(
-                "Was this actually sarcasm?",
-                reply_markup=ReplyKeyboardMarkup(
-                    [["Yes", "No"]],
-                    one_time_keyboard=True,
-                    resize_keyboard=True
+                # Call Flask API with current timeout
+                response = requests.post(
+                    f"{os.getenv('API_URL')}/predict",
+                    json={"text": text},
+                    timeout=timeout
                 )
-            )
 
-        except Exception as e:
-            logger.error(f"Prediction error: {e}")
-            await update.message.reply_text("⚠️ Error processing your request")
-            self.pending_interactions.pop(user_id, None)
+                # Handle HTTP errors
+                if response.status_code == 502:
+                    raise requests.exceptions.HTTPError("502 Bad Gateway (service may be waking up)")
+                response.raise_for_status()
+
+                data = response.json()
+
+                # Validate API response structure
+                if 'prediction' not in data or len(data['prediction'][0]) < 2:
+                    raise ValueError("Invalid API response format")
+
+                sarcasm_prob = data['prediction'][0][1] * 100
+                response_msg = self._get_response(sarcasm_prob)
+
+                # Store interaction
+                self.pending_interactions[user_id] = {
+                    "raw_text": text,
+                    "processed_text": data.get('processed_text', ''),
+                    "confidence": sarcasm_prob,
+                    "is_sarcasm": sarcasm_prob >= 50,
+                    "chat_id": update.effective_chat.id
+                }
+
+                # Send response
+                await update.message.reply_text(
+                    f"{response_msg}\n\nConfidence: {sarcasm_prob:.1f}%"
+                )
+
+                # Request feedback
+                await update.message.reply_text(
+                    "Was this actually sarcasm?",
+                    reply_markup=ReplyKeyboardMarkup(
+                        [["Yes", "No"]],
+                        one_time_keyboard=True,
+                        resize_keyboard=True
+                    )
+                )
+                return  # Success - exit retry loop
+
+            except requests.exceptions.RequestException as e:
+                logger.warning(f"Attempt {attempt + 1} failed: {str(e)}")
+
+                if attempt == max_retries - 1:  # Final attempt failed
+                    logger.error(f"All retries exhausted for user {user_id}")
+                    await update.message.reply_text(
+                        "🔌 My brain is still booting up...\n"
+                        "Please try again in 10-15 seconds!"
+                    )
+                else:
+                    await asyncio.sleep(timeout)  # Backoff before retry
+
+            except Exception as e:
+                logger.error(f"Unexpected error: {str(e)}", exc_info=True)
+                await update.message.reply_text("⚠️ An unexpected error occurred")
+                break  # Don't retry for non-network errors
+
+        # Cleanup if all retries failed
+        self.pending_interactions.pop(user_id, None)
 
     async def handle_feedback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Process user feedback and save complete interaction"""
