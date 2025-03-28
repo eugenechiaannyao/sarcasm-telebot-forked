@@ -2,8 +2,8 @@
 import sys
 from flask import Flask, request, jsonify
 import joblib
-sys.path.append('../utils')  # Add utils directory to sys.path
-from shared_preprocessing import preprocess_text
+sys.path.append('..')  # Add utils directory to sys.path
+import utils
 
 app = Flask(__name__)
 
@@ -22,7 +22,7 @@ def predict():
     data = request.get_json(force=True)
     text = data.get("text", "")
 
-    processed_text = preprocess_text(text)
+    processed_text = utils.preprocess_text(text)
     text_vec = vectorizer.transform([processed_text])
     prediction = model.predict_proba(text_vec)
 
