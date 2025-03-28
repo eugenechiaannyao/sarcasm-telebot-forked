@@ -107,12 +107,16 @@ def _get_response(confidence: float) -> str:
 
 # --- Webhook Endpoints ---
 @app.route('/webhook', methods=['POST'])
-async def webhook():
-    """Async webhook handler"""
+def webhook():  # Remove async keyword
     try:
-        json_data = await request.get_json()
+        json_data = request.get_json()  # Remove await
         update = Update.de_json(json_data, application.bot)
-        await application.process_update(update)
+
+        # Use the proper async execution method
+        asyncio.run_coroutine_threadsafe(
+            application.process_update(update),
+            application.updater.dispatcher.loop
+        )
         return 'OK'
     except Exception as e:
         logger.error(f"Webhook error: {e}")
