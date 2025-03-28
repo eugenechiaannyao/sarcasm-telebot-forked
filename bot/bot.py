@@ -195,7 +195,10 @@ class SarcasmBot:
         if os.getenv("WEBHOOK_MODE"):
             app.run(host='0.0.0.0', port=int(os.getenv("PORT", 8000)))
         else:
-            self.application.run_polling()  # Fallback for local dev
+            self.application.run_polling(
+                close_loop=False,  # Critical for Railway
+                stop_signals=[]
+            )  # Fallback for local dev
 
 
 if __name__ == "__main__":
