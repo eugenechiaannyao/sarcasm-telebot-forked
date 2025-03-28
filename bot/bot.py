@@ -127,9 +127,10 @@ class SarcasmBot:
                     raise ValueError("Invalid API response format")
 
                 sarcasm_prob = data['prediction'][0][1] * 100
-                response_msg = self._get_response(sarcasm_prob)
 
                 confidence_score, is_sarcasm = self.calculate_normalized_confidence(sarcasm_prob)
+
+                response_msg = self._get_response(confidence_score, is_sarcasm)
 
                 # Store interaction
                 self.pending_interactions[user_id] = {
@@ -236,18 +237,24 @@ class SarcasmBot:
         finally:
             self.pending_interactions.pop(user_id, None)
 
-    def _get_response(self, confidence: float) -> str:
-        """Generate response based on confidence level"""
-        if confidence >= 85:
-            return "🔥 Absolutely sarcastic!"
-        elif confidence >= 75:
-            return "💯 Pretty sure this is sarcasm"
-        elif confidence >= 65:
-            return "👍 Likely sarcastic"
-        elif confidence >= 50:
-            return "🤔 Might be sarcastic..."
+    def _get_response(self, confidence: float, is_sarcasm: bool) -> str:
+        """Gentler response tiers for flattened confidence"""
+        if is_sarcasm:
+            if confidence >= 85:
+                return "💯 That's definitely sarcasm"
+            elif confidence >= 75:
+                return "👍 Yeah, that's probably sarcastic"
+            elif confidence >= 65:
+                return "🤔 Might be sarcastic..."
+            else:
+                return "❓ Not entirely sure"
         else:
-            return "❌ Doesn't seem sarcastic"
+            if confidence >= 80:
+                return "✅ Seems genuine"
+            elif confidence >= 70:
+                return "💁‍♂️ Probably not sarcastic"
+            else:
+                return "⚖️ Could go either way"
 
     def run(self):
         """Run the bot"""
