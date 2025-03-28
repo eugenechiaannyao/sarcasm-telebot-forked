@@ -201,7 +201,7 @@ class SarcasmBot:
             confidence = 65 + (45 - sarcasm_prob) * 0.75
 
         # Cap at 95% to avoid absolute certainty
-        return normalized, is_sarcasm
+        return confidence, is_sarcasm
 
     async def handle_feedback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Process user feedback and save complete interaction"""
