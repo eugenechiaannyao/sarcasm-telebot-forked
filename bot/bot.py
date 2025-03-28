@@ -1,13 +1,12 @@
 import os
 import logging
-import asyncio
 from telegram import Update
 from telegram.ext import (
-    Application,
+    Updater,  # Using synchronous Updater instead of async Application
     CommandHandler,
     MessageHandler,
-    filters,
-    ContextTypes,
+    Filters,
+    CallbackContext,
 )
 from flask import Flask, request, jsonify
 from supabase import create_client
@@ -24,41 +23,41 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Initialize Supabase
+# Initialize Supabase (synchronous)
 supabase = create_client(
     os.getenv("SUPABASE_URL"),
     os.getenv("SUPABASE_KEY")
 )
 
-# Initialize Flask with async support
+# Initialize Flask
 app = Flask(__name__)
-app.config['JSONIFY_PRETTYPRINT_REGULAR'] = False
 
-# Initialize Telegram bot
-application = Application.builder().token(os.getenv("TELEGRAM_TOKEN")).build()
+# Initialize Telegram bot (synchronous)
+updater = Updater(token=os.getenv("TELEGRAM_TOKEN"), use_context=True)
+dispatcher = updater.dispatcher
 
 
-# --- Command Handlers ---
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# --- Synchronous Command Handlers ---
+def start(update: Update, context: CallbackContext):
     """Send welcome message"""
-    await update.message.reply_text(
+    update.message.reply_text(
         "🤖 Hi! I'm a sarcasm detection bot.\n\n"
         "Use /predict followed by text to analyze:\n"
         "Example: /predict Oh great, another meeting..."
     )
 
 
-async def predict(update: Update, context: ContextTypes.DEFAULT_TYPE):
+def predict(update: Update, context: CallbackContext):
     """Handle prediction requests"""
     try:
         text = " ".join(context.args) if context.args else ""
 
         if not text:
-            await update.message.reply_text("Please provide text after /predict")
+            update.message.reply_text("Please provide text after /predict")
             return
 
         if len(text.split()) > 18:
-            await update.message.reply_text("Please limit to 18 words")
+            update.message.reply_text("Please limit to 18 words")
             return
 
         # Call Flask API
@@ -71,7 +70,7 @@ async def predict(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         # Process response
         sarcasm_prob = data['prediction'][0][1] * 100
-        response_msg = _get_response(sarcasm_prob)
+        response_msg = get_response(sarcasm_prob)
 
         # Save to Supabase
         supabase.table("interactions").insert({
@@ -82,16 +81,16 @@ async def predict(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "is_sarcasm": sarcasm_prob >= 50
         }).execute()
 
-        await update.message.reply_text(
+        update.message.reply_text(
             f"{response_msg}\n\nConfidence: {sarcasm_prob:.1f}%"
         )
 
     except Exception as e:
         logger.error(f"Prediction error: {e}")
-        await update.message.reply_text("⚠️ Error processing your request")
+        update.message.reply_text("⚠️ Error processing your request")
 
 
-def _get_response(confidence: float) -> str:
+def get_response(confidence: float) -> str:
     """Generate response based on confidence level"""
     if confidence >= 85:
         return "🔥 Absolutely sarcastic!"
@@ -105,18 +104,14 @@ def _get_response(confidence: float) -> str:
         return "❌ Doesn't seem sarcastic"
 
 
-# --- Webhook Endpoints ---
+# --- Webhook Endpoint (synchronous) ---
 @app.route('/webhook', methods=['POST'])
-def webhook():  # Remove async keyword
+def webhook():
+    """Synchronous webhook handler"""
     try:
-        json_data = request.get_json()  # Remove await
-        update = Update.de_json(json_data, application.bot)
-
-        # Use the proper async execution method
-        asyncio.run_coroutine_threadsafe(
-            application.process_update(update),
-            application.updater.dispatcher.loop
-        )
+        json_data = request.get_json()
+        update = Update.de_json(json_data, updater.bot)
+        dispatcher.process_update(update)  # Synchronous processing
         return 'OK'
     except Exception as e:
         logger.error(f"Webhook error: {e}")
@@ -125,15 +120,14 @@ def webhook():  # Remove async keyword
 
 @app.route('/health')
 def health():
-    """Health check endpoint"""
     return 'OK', 200
 
 
 # --- Startup ---
-async def register_webhook():
-    """Register webhook with Telegram"""
+def register_webhook():
+    """Register webhook synchronously"""
     if os.getenv("WEBHOOK_URL"):
-        await application.bot.set_webhook(
+        updater.bot.set_webhook(
             url=os.getenv("WEBHOOK_URL"),
             allowed_updates=["message", "callback_query"]
         )
@@ -142,21 +136,19 @@ async def register_webhook():
 
 def main():
     # Register handlers
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("predict", predict))
+    dispatcher.add_handler(CommandHandler("start", start))
+    dispatcher.add_handler(CommandHandler("predict", predict))
 
     # Start based on environment
     if os.getenv("WEBHOOK_MODE"):
         port = int(os.getenv("PORT", 8000))
+        register_webhook()
 
-        # Run async tasks
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        loop.run_until_complete(register_webhook())
-
-        app.run(host='0.0.0.0', port=port)
+        # Start Flask in main thread
+        app.run(host='0.0.0.0', port=port, threaded=True)
     else:
-        application.run_polling()
+        updater.start_polling()
+        updater.idle()  # Block until stopped
 
 
 if __name__ == '__main__':
