@@ -2,15 +2,15 @@ import asyncio
 import os
 import logging
 import time
-from typing import Dict
-from telegram import Update, ReplyKeyboardMarkup
+from typing import Dict, Optional
+from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
 from telegram.ext import (
     Application,
     CommandHandler,
     MessageHandler,
     filters,
     ContextTypes,
-    CallbackContext
+    ConversationHandler
 )
 from supabase import create_client
 from dotenv import load_dotenv
@@ -26,7 +26,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-
 class SarcasmBot:
     def __init__(self):
         # Initialize Supabase client
@@ -38,6 +37,20 @@ class SarcasmBot:
         # Dictionary to store pending interactions
         self.pending_interactions: Dict[int, dict] = {}  # {user_id: interaction_data}
 
+        # Dictionary to store user model preferences
+        self.user_models: Dict[int, str] = {}  # {user_id: model_name}
+
+        # Available models
+        self.available_models = {
+            "nb": "Naive Bayes",
+            "dBert_typos": "DBert Typos",
+            "dBert_syns": "DBert Synonyms",
+            "dBert": "Base DBert"
+        }
+
+        # Default model
+        self.default_model = "nb"
+
         # Initialize Telegram application
         self.application = Application.builder() \
             .token(os.getenv("TELEGRAM_TOKEN")) \
@@ -46,7 +59,9 @@ class SarcasmBot:
         # Register all handlers
         self.application.add_handler(CommandHandler("start", self.start))
         self.application.add_handler(CommandHandler("predict", self.predict))
-        self.application.add_handler(CommandHandler("help", self.help))  # New
+        self.application.add_handler(CommandHandler("help", self.help))
+        self.application.add_handler(CommandHandler("model", self.show_current_model))
+        self.application.add_handler(CommandHandler("choose_model", self.choose_model))
         self.application.add_handler(
             MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_feedback)
         )
@@ -91,7 +106,9 @@ class SarcasmBot:
         commands = [
             ("start", "Start the bot"),
             ("predict", "Analyze text for sarcasm"),
-            ("help", "Show help guide")
+            ("help", "Show help guide"),
+            ("choose_model", "Select a different model"),
+            ("model", "Show current model")
         ]
         await self.application.bot.set_my_commands(commands)
 
@@ -101,8 +118,17 @@ class SarcasmBot:
         🤖 <b>Sarcasm Detection Bot</b>
 
         <b>Commands:</b>
-            /predict <i>text</i> - Analyze text for sarcasm (max 18 words)
-            /help - Show this message
+            /start - Start the bot
+            /predict <i>text</i> - Analyze text for sarcasm (max 128 words)
+            /choose_model - Select a different model
+            /model - Show current model
+            /help - Show this help message
+
+        <b>Models:</b>
+            nb - Naive Bayes (default)
+            dBert_typos - DBert Typos
+            dBert_syns - DBert Synonyms
+            dBert - Base DBert
 
         <b>Examples:</b>
             <code>/predict Oh great, another meeting</code>
@@ -120,17 +146,60 @@ class SarcasmBot:
             "Example: /predict Oh great, another meeting..."
         )
 
+    async def show_current_model(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Show currently selected model"""
+        user_id = update.effective_user.id
+        current_model = self.user_models.get(user_id, self.default_model)
+        model_name = self.available_models.get(current_model, "Unknown")
+        await update.message.reply_text(f"Current model: {model_name}")
+
+    async def choose_model(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Show available models for selection"""
+        # Create a list of KeyboardButton for each model
+        model_buttons = [[KeyboardButton(model)] for model in self.available_models.values()]
+
+        reply_markup = ReplyKeyboardMarkup(
+            model_buttons,
+            one_time_keyboard=True,
+            resize_keyboard=True
+        )
+        await update.message.reply_text(
+            "Please select a model:",
+            reply_markup=reply_markup
+        )
+
+    async def set_model(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Set selected model"""
+        user_id = update.effective_user.id
+        selected_model = update.message.text
+
+        # Find matching model key
+        for key, value in self.available_models.items():
+            if value == selected_model:
+                self.user_models[user_id] = key
+                await update.message.reply_text(
+                    f"Model set to {selected_model}",
+                    reply_markup=ReplyKeyboardRemove()
+                )
+                return
+
+        await update.message.reply_text(
+            "Invalid model selection. Please use /choose_model to select from available options.",
+            reply_markup=ReplyKeyboardRemove()
+        )
+
     async def predict(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle prediction requests with retry logic"""
         user_id = update.effective_user.id
         text = ' '.join(context.args) if context.args else ""
+        current_model = self.user_models.get(user_id, self.default_model)
 
         # Input validation
         if not text:
             await update.message.reply_text("Please provide text after /predict")
             return
-        if len(text.split()) > 18:
-            await update.message.reply_text("Please limit to 18 words")
+        if len(text.split()) > 128:
+            await update.message.reply_text("Please limit to 128 words")
             return
 
         # Retry configuration
@@ -143,10 +212,10 @@ class SarcasmBot:
                 # Progressive timeout with backoff
                 timeout = initial_timeout * (backoff_factor ** attempt)
 
-                # Call Flask API with current timeout
+                # Call Flask API with current timeout and model
                 response = requests.post(
                     f"{os.getenv('API_URL')}/predict",
-                    json={"text": text},
+                    json={"text": text, "model": current_model},
                     timeout=timeout
                 )
 
@@ -158,13 +227,21 @@ class SarcasmBot:
                 data = response.json()
 
                 # Validate API response structure
-                if 'prediction' not in data or len(data['prediction'][0]) < 2:
+                if 'prediction' not in data:
                     raise ValueError("Invalid API response format")
 
-                sarcasm_prob = data['prediction'][0][1]
+                # Handle different response formats based on model type
+                if current_model == "nb":
+                    # Naive Bayes model
+                    sarcasm_prob = data['prediction']
+                else:
+                    # DistilBERT models
+                    sarcasm_prob = data['prediction']
 
-                confidence_score, is_sarcasm = self.calculate_normalized_confidence(sarcasm_prob)
+                confidence_score = sarcasm_prob * 100
+                is_sarcasm = sarcasm_prob > 0.5
 
+                # Calculate response message
                 response_msg = self._get_response(confidence_score, is_sarcasm)
 
                 # Store interaction
@@ -173,12 +250,15 @@ class SarcasmBot:
                     "processed_text": data.get('processed_text', ''),
                     "confidence": sarcasm_prob,
                     "is_sarcasm": is_sarcasm,
-                    "chat_id": update.effective_chat.id
+                    "chat_id": update.effective_chat.id,
+                    "model_used": current_model
                 }
 
                 # Send response
                 await update.message.reply_text(
-                    f"{response_msg}\n\nConfidence: {confidence_score:.1f}%"
+                    f"{response_msg}\n\n"
+                    f"Confidence: {confidence_score:.1f}%\n"
+                    f"Model: {self.available_models.get(current_model, 'Unknown')}"
                 )
 
                 # Request feedback
@@ -243,6 +323,10 @@ class SarcasmBot:
         """Process user feedback and save complete interaction"""
         user_id = update.effective_user.id
         if user_id not in self.pending_interactions:
+            # Check if this is a model selection
+            if update.message.text in self.available_models.values():
+                await self.set_model(update, context)
+                return
             await update.message.reply_text("❌ No pending prediction to give feedback on")
             return
 
@@ -258,7 +342,8 @@ class SarcasmBot:
                 "processed_text": interaction["processed_text"],
                 "confidence": interaction["confidence"],
                 "is_sarcasm": interaction["is_sarcasm"],
-                "user_feedback": feedback
+                "user_feedback": feedback,
+                "model_used": interaction["model_used"]  # Add model to database
             }).execute()
 
             await update.message.reply_text(
@@ -312,7 +397,6 @@ class SarcasmBot:
             logger.info("Shutting down gracefully...")
         finally:
             loop.close()
-
 
 if __name__ == "__main__":
     bot = SarcasmBot()

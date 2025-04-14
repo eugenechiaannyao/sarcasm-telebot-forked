@@ -61,3 +61,6 @@ python-telegram-bot~=22.0
 supabase~=2.15.0
 dotenv~=0.9.9
 python-dotenv~=1.1.0
+transformers  # Add this line
+torch==2.2.1          # Add if needed
+tensorflow==2.15.0    # Add if needed
