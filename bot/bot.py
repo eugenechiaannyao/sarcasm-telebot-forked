@@ -178,8 +178,14 @@ class SarcasmBot:
         for key, value in self.available_models.items():
             if value == selected_model:
                 self.user_models[user_id] = key
+
+                # Add warning for BERT models
+                response_text = f"Model set to {selected_model}"
+                if "dbert" in key.lower():  # Check if model name contains 'dbert'
+                    response_text += "\n\n⚠️ Note: dBert is a big boy. Typical response time is ~18 seconds."
+
                 await update.message.reply_text(
-                    f"Model set to {selected_model}",
+                    response_text,
                     reply_markup=ReplyKeyboardRemove()
                 )
                 return
@@ -211,7 +217,7 @@ class SarcasmBot:
         for attempt in range(max_retries):
             try:
                 # Progressive timeout with backoff
-                timeout = 30
+                timeout = 18
 
                 # Call Flask API with current timeout and model
                 response = requests.post(
