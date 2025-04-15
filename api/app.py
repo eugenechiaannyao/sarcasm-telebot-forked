@@ -14,12 +14,12 @@ app = Flask(__name__)
 MODEL_FILES = {
     "nb_model": "1TWuzcFguEiYwSykQmAPwDTF55qNx27ce",
     "vectorizer": "1a6_E545QQ2miuINCE1A7W1Wl0vihSGe4",
-    # "dBert_model": "1EmZ5DEmnyR0WAJSuk2Bk19qLoyyivDHR",
-    # "dBert_tokenizer": "1pqzj25bDJkM4ihWDvn8wIn-gFPJqWb6d",
-    # "dBert_typos_model": "1b86nXNUyv0sQwh9gBJfDxwf4V49nDJII",
-    # "dBert_typos_tokenizer": "1mlDBxEDjty7bZb077kfR8zo8IPGuJ3oQ",
-    # "dBert_syns_model": "1UcF7C2DkBfkqTZURn5XeXLPc-xvu0Rx9",
-    # "dBert_syns_tokenizer": "1ENC7DqeSWBpZEbKfAHjdRQ9N0rcFJp2w"
+    "dBert_model": "1EmZ5DEmnyR0WAJSuk2Bk19qLoyyivDHR",
+    "dBert_tokenizer": "1pqzj25bDJkM4ihWDvn8wIn-gFPJqWb6d",
+    "dBert_typos_model": "1b86nXNUyv0sQwh9gBJfDxwf4V49nDJII",
+    "dBert_typos_tokenizer": "1mlDBxEDjty7bZb077kfR8zo8IPGuJ3oQ",
+    "dBert_syns_model": "1UcF7C2DkBfkqTZURn5XeXLPc-xvu0Rx9",
+    "dBert_syns_tokenizer": "1ENC7DqeSWBpZEbKfAHjdRQ9N0rcFJp2w"
 }
 
 def download_from_gdrive(file_id, output_path):
@@ -62,18 +62,18 @@ def load_models():
                 "model": models_loaded["nb_model"],
                 "vectorizer": models_loaded["vectorizer"]
             },
-            # "dBert": {
-            #     "model": models_loaded["dBert_model"],
-            #     "tokenizer": models_loaded["dBert_tokenizer"]
-            # },
-            # "dBert_typos": {
-            #     "model": models_loaded["dBert_typos_model"],
-            #     "tokenizer": models_loaded["dBert_typos_tokenizer"]
-            # },
-            # "dBert_syns": {
-            #     "model": models_loaded["dBert_syns_model"],
-            #     "tokenizer": models_loaded["dBert_syns_tokenizer"]
-            # }
+            "dBert": {
+                "model": models_loaded["dBert_model"],
+                "tokenizer": models_loaded["dBert_tokenizer"]
+            },
+            "dBert_typos": {
+                "model": models_loaded["dBert_typos_model"],
+                "tokenizer": models_loaded["dBert_typos_tokenizer"]
+            },
+            "dBert_syns": {
+                "model": models_loaded["dBert_syns_model"],
+                "tokenizer": models_loaded["dBert_syns_tokenizer"]
+            }
     }
 
 try:
