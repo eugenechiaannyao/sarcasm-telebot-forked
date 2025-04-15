@@ -148,7 +148,6 @@ def predict():
 
         # Convert NumPy types to Python native types
         sarcasm_prob = float(sarcasm_prob)
-        is_sarcasm = bool(prediction[0][1] > 0.5)
     else:
         # DistilBERT-based models
         processed_text = text
@@ -180,17 +179,9 @@ def predict():
         # Renormalize to ensure probabilities sum to 1
         probabilities = probabilities / probabilities.sum(dim=1, keepdim=True)
 
-        print("Full probability distribution:", probabilities)
-
-        # Verify class indexing
-        print("Class 0 (non-sarcastic):", probabilities[0][1].item())
-        print("Class 1 (sarcastic):", probabilities[0][0].item())
-
         # Get final sarcasm probability
         sarcasm_prob = probabilities[0][0].item()
-        print("Final sarcasm probability (tempered):", sarcasm_prob)
 
-    print(sarcasm_prob)
     return jsonify({
         "processed_text": processed_text,
         "prediction": sarcasm_prob,

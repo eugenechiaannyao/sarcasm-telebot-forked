@@ -205,13 +205,13 @@ class SarcasmBot:
 
         # Retry configuration
         max_retries = 3
-        initial_timeout = 5
-        backoff_factor = 2  # Exponential backoff (5s, 10s, 20s)
+        # initial_timeout = 10
+        # backoff_factor = 2
 
         for attempt in range(max_retries):
             try:
                 # Progressive timeout with backoff
-                timeout = initial_timeout * (backoff_factor ** attempt)
+                timeout = 30
 
                 # Call Flask API with current timeout and model
                 response = requests.post(
@@ -334,8 +334,6 @@ class SarcasmBot:
             self.pending_interactions.pop(user_id, None)
 
     def _get_response(self, confidence: float, is_sarcasm: bool) -> str:
-        print(is_sarcasm)
-        print(confidence)
         """Gentler response tiers for flattened confidence"""
         if is_sarcasm:
             if confidence >= 85:
