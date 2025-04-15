@@ -180,7 +180,7 @@ def predict():
         probabilities = probabilities / probabilities.sum(dim=1, keepdim=True)
 
         # Get final sarcasm probability
-        sarcasm_prob = probabilities[0][0].item()
+        sarcasm_prob = probabilities[0][1].item()
 
     return jsonify({
         "processed_text": processed_text,
