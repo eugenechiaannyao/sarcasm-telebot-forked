@@ -38,7 +38,7 @@ def load_models():
     models_loaded = {}
 
     for name, file_id in MODEL_FILES.items():
-        ext = ".pth" if "dBert" in name else ".joblib"
+        ext = ".pth" if "dBert" or "mBert" in name else ".joblib"
         cache_path = CACHE_DIR / f"{name}{ext}"
 
         # Download only if missing
@@ -77,8 +77,8 @@ def load_models():
                 "tokenizer": models_loaded["dBert_syns_tokenizer"]
             },
             "mBert": {
-                "model": models_loaded["mBert_model"],
-                "tokenizer": models_loaded["mBert_tokenizer"]
+                "model": models_loaded["mBert_model.pth"],
+                "tokenizer": models_loaded["mBert_tokenizer.pth"]
             }
     }
 
