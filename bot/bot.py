@@ -329,7 +329,7 @@ class SarcasmBot:
             }).execute()
 
             await update.message.reply_text(
-                "✅ Thanks for your feedback!",
+                "✅ Thanks for your feedback! Please vote for our StEps 26 team at https://uvents.nus.edu.sg/event/26th-steps/vote - CS4248, Team 15!",
                 reply_markup=None  # This removes the keyboard
             )
 
