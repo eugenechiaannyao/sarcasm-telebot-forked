@@ -19,7 +19,9 @@ MODEL_FILES = {
     "dBert_typos_model": "1b86nXNUyv0sQwh9gBJfDxwf4V49nDJII",
     "dBert_typos_tokenizer": "1mlDBxEDjty7bZb077kfR8zo8IPGuJ3oQ",
     "dBert_syns_model": "1UcF7C2DkBfkqTZURn5XeXLPc-xvu0Rx9",
-    "dBert_syns_tokenizer": "1ENC7DqeSWBpZEbKfAHjdRQ9N0rcFJp2w"
+    "dBert_syns_tokenizer": "1ENC7DqeSWBpZEbKfAHjdRQ9N0rcFJp2w",
+    "mBert_model": "1UfasKY9e-9Y0SUWMigEtgVx5Y01YHp9L",
+    "mBert_tokenizer": "1jyA9bffvjqLASperi7yH4vFgSDtHs6GZ",
 }
 
 def download_from_gdrive(file_id, output_path):
@@ -73,6 +75,10 @@ def load_models():
             "dBert_syns": {
                 "model": models_loaded["dBert_syns_model"],
                 "tokenizer": models_loaded["dBert_syns_tokenizer"]
+            },
+            "mBert": {
+                "model": models_loaded["mBert_model"],
+                "tokenizer": models_loaded["mBert_tokenizer"]
             }
     }
 

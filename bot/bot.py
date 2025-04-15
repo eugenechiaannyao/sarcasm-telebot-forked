@@ -44,9 +44,10 @@ class SarcasmBot:
         # Available models
         self.available_models = {
             "nb": "Naive Bayes",
+            "dBert": "Base DBert",
             "dBert_typos": "DBert Typos",
             "dBert_syns": "DBert Synonyms",
-            "dBert": "Base DBert"
+            "mBert": "Base MBert"
         }
 
         # Default model
