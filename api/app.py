@@ -22,6 +22,10 @@ MODEL_FILES = {
     "dBert_syns_tokenizer": "1ENC7DqeSWBpZEbKfAHjdRQ9N0rcFJp2w",
     "mBert_model": "1UfasKY9e-9Y0SUWMigEtgVx5Y01YHp9L",
     "mBert_tokenizer": "1jyA9bffvjqLASperi7yH4vFgSDtHs6GZ",
+    "mBert_typos_model": "1-4q78Y-66Ite9sQ6b9D2utyasmVAAs2u",
+    "mBert_typos_tokenizer": "1-EvDJ_MydeHu3Vs_C_0iqEpk3Zs3BMzo",
+    "tBert_model": "1-KyHoGYOlb-B3S93Y_JZiJZZgsJVSYLw",
+    "tBert_tokenizer": "1-MKncOBUjtVg2Xd1oLCcc3Qa8KkvlmOY",
 }
 
 def download_from_gdrive(file_id, output_path):
@@ -38,7 +42,7 @@ def load_models():
     models_loaded = {}
 
     for name, file_id in MODEL_FILES.items():
-        ext = ".pth" if "dBert" in name or "mBert" in name else ".joblib"
+        ext = ".pth" if "dBert" in name or "mBert" in name or "tBert" in name else ".joblib"
         cache_path = CACHE_DIR / f"{name}{ext}"
 
         # Download only if missing
@@ -79,6 +83,14 @@ def load_models():
             "mBert": {
                 "model": models_loaded["mBert_model"],
                 "tokenizer": models_loaded["mBert_tokenizer"]
+            },
+            "mBert_typos": {
+                "model": models_loaded["mBert_typos_model"],
+                "tokenizer": models_loaded["mBert_typos_tokenizer"]
+            },
+            "tBert": {
+                "model": models_loaded["tBert_model"],
+                "tokenizer": models_loaded["tBert_tokenizer"]
             }
     }
 

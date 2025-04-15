@@ -47,7 +47,9 @@ class SarcasmBot:
             "dBert": "Base DBert",
             "dBert_typos": "DBert Typos",
             "dBert_syns": "DBert Synonyms",
-            "mBert": "Base MBert"
+            "mBert": "Base MBert",
+            "mBert_typos": "MBert Typos",
+            "tBert": "Base TBert"
         }
 
         # Default model
@@ -128,9 +130,12 @@ class SarcasmBot:
 
         <b>Models:</b>
             nb - Naive Bayes (default)
-            dBert_typos - DBert Typos
-            dBert_syns - DBert Synonyms
-            dBert - Base DBert
+            dBert_typos - DistillBert with Typos Augmentation
+            dBert_syns - DistillBert with Synonym Augmentation
+            dBert - Base DistillBert with No Augmentation
+            mBert - Base MBert with No Augmentation
+            mBert_typos - Base MBert with Typos Augmentation
+            tBert - Base TBert with No Augmentation
 
         <b>Examples:</b>
             <code>/predict Oh great, another meeting</code>
