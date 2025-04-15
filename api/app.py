@@ -169,19 +169,31 @@ def predict():
             outputs = model(**inputs)
         logits = outputs.logits
 
-        # Calculate probabilities using softmax
-        probabilities = torch.softmax(logits, dim=1)
-        sarcasm_prob = probabilities.squeeze()[1].item()  # Probability of the positive class (sarcasm)
-        is_sarcasm = bool(sarcasm_prob > 0.5)
+        # Apply temperature scaling and clamping
+        temperature = 2.5  # Higher values, less extreme
+        min_prob = 0.01  # Minimum probability for any class
 
-    # Calculate confidence and response
-    confidence_score = sarcasm_prob * 100
+        scaled_logits = logits / temperature
+        probabilities = torch.softmax(scaled_logits, dim=1)
+        probabilities = torch.clamp(probabilities, min=min_prob, max=1 - min_prob)
 
+        # Renormalize to ensure probabilities sum to 1
+        probabilities = probabilities / probabilities.sum(dim=1, keepdim=True)
+
+        print("Full probability distribution:", probabilities)
+
+        # Verify class indexing
+        print("Class 0 (non-sarcastic):", probabilities[0][1].item())
+        print("Class 1 (sarcastic):", probabilities[0][0].item())
+
+        # Get final sarcasm probability
+        sarcasm_prob = probabilities[0][0].item()
+        print("Final sarcasm probability (tempered):", sarcasm_prob)
+
+    print(sarcasm_prob)
     return jsonify({
         "processed_text": processed_text,
         "prediction": sarcasm_prob,
-        "confidence": confidence_score,
-        "is_sarcasm": is_sarcasm,
         "model_used": model_name
     }), 200
 

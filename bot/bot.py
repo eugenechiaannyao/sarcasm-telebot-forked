@@ -15,6 +15,7 @@ from telegram.ext import (
 from supabase import create_client
 from dotenv import load_dotenv
 import requests
+from torch.ao.nn.quantized.functional import threshold
 
 # Load environment variables
 load_dotenv()
@@ -238,8 +239,10 @@ class SarcasmBot:
                     # DistilBERT models
                     sarcasm_prob = data['prediction']
 
+                threshold = 0.5
+                is_sarcasm = sarcasm_prob > threshold
+                sarcasm_prob = sarcasm_prob if is_sarcasm else (1 - sarcasm_prob)
                 confidence_score = sarcasm_prob * 100
-                is_sarcasm = sarcasm_prob > 0.5
 
                 # Calculate response message
                 response_msg = self._get_response(confidence_score, is_sarcasm)
@@ -292,33 +295,6 @@ class SarcasmBot:
         # Cleanup if all retries failed
         self.pending_interactions.pop(user_id, None)
 
-    def calculate_normalized_confidence(self, raw_prob: float) -> tuple[float, bool]:
-        """
-        Calculate normalized confidence score and sarcasm determination
-        Args:
-            raw_prob: Raw probability from model (0.0-1.0)
-        Returns:
-            tuple[normalized_confidence (0-100), is_sarcasm (bool)]
-        """
-        sarcasm_prob = raw_prob * 100  # Convert to percentage
-
-        # Determine if sarcastic
-        is_sarcasm = sarcasm_prob > 50
-
-        # Base confidence (distance from neutral)
-        base_confidence = abs(sarcasm_prob - 50) * 2  # Converts 50-100 → 0-100
-
-        # Linear scaling from neutral (50%) to certain (100%)
-        if is_sarcasm:
-            # Scale 55% → 65%, 100% → 95%
-            confidence = 65 + (sarcasm_prob - 55) * 0.75
-        else:
-            # Scale 45% → 65%, 0% → 95% (inverse)
-            confidence = 65 + (45 - sarcasm_prob) * 0.75
-
-        # Cap at 95% to avoid absolute certainty
-        return confidence, is_sarcasm
-
     async def handle_feedback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Process user feedback and save complete interaction"""
         user_id = update.effective_user.id
@@ -358,23 +334,25 @@ class SarcasmBot:
             self.pending_interactions.pop(user_id, None)
 
     def _get_response(self, confidence: float, is_sarcasm: bool) -> str:
+        print(is_sarcasm)
+        print(confidence)
         """Gentler response tiers for flattened confidence"""
         if is_sarcasm:
             if confidence >= 85:
                 return "💯 That's definitely sarcasm"
-            elif confidence >= 75:
-                return "👍 Yeah, that's probably sarcastic"
-            elif confidence >= 65:
+            elif confidence >= 70:
+                return "👍 Yeah, that's probably sarcasm"
+            elif confidence >= 60:
                 return "🤔 Might be sarcastic..."
             else:
-                return "❓ Not entirely sure"
+                return "❓ Not entirely sure, but I'm leaning towards sarcastic"
         else:
             if confidence >= 80:
                 return "✅ Seems genuine"
             elif confidence >= 70:
                 return "💁‍♂️ Probably not sarcastic"
             else:
-                return "⚖️ Could go either way"
+                return "⚖️ Could go either way, but I'm leaning towards not sarcastic..."
 
     def run(self):
         """Run the bot with smart sleep"""
