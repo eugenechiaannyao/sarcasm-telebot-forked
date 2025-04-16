@@ -71,7 +71,7 @@ class SarcasmBot:
 
         self.last_activity = None
         self.is_sleeping = False
-        self.sleep_timeout = 1800  # 30 minutes in seconds
+        self.sleep_timeout = 1800
         self.polling_task = None
 
         self.rate_limits = defaultdict(list)  # Track user request timestamps
@@ -248,7 +248,7 @@ class SarcasmBot:
         for attempt in range(max_retries):
             try:
                 # Progressive timeout with backoff
-                timeout = 18
+                timeout = 30
 
                 # Call Flask API with current timeout and model
                 response = requests.post(
