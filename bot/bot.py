@@ -3,6 +3,7 @@ import os
 import logging
 import time
 from typing import Dict, Optional
+from collections import defaultdict
 from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
 from telegram.ext import (
     Application,
@@ -10,12 +11,10 @@ from telegram.ext import (
     MessageHandler,
     filters,
     ContextTypes,
-    ConversationHandler
 )
 from supabase import create_client
 from dotenv import load_dotenv
 import requests
-from torch.ao.nn.quantized.functional import threshold
 
 # Load environment variables
 load_dotenv()
@@ -74,6 +73,11 @@ class SarcasmBot:
         self.is_sleeping = False
         self.sleep_timeout = 1800  # 30 minutes in seconds
         self.polling_task = None
+
+        self.rate_limits = defaultdict(list)  # Track user request timestamps
+        self.rate_lock = asyncio.Lock()  # Async lock for thread safety
+        self.RATE_LIMIT = 5  # 5 requests
+        self.TIME_WINDOW = 60  # 60 seconds
 
     async def activity_monitor(self):
         """Background task to manage sleep/wake states"""
@@ -219,6 +223,27 @@ class SarcasmBot:
         max_retries = 3
         # initial_timeout = 10
         # backoff_factor = 2
+
+        # --- Rate Limiting Check ---
+        async with self.rate_lock:
+            now = time.time()
+            # Cleanup old requests
+            self.rate_limits[user_id] = [
+                t for t in self.rate_limits[user_id]
+                if now - t < self.TIME_WINDOW
+            ]
+
+            # Check if over limit
+            if len(self.rate_limits[user_id]) >= self.RATE_LIMIT:
+                wait_time = int(self.TIME_WINDOW - (now - self.rate_limits[user_id][0]))
+                await update.message.reply_text(
+                    f"⏳ Too many requests! Please wait {wait_time} seconds",
+                    reply_markup=ReplyKeyboardRemove()
+                )
+                return
+
+            # Record new request
+            self.rate_limits[user_id].append(now)
 
         for attempt in range(max_retries):
             try:
